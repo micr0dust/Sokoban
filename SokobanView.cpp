@@ -151,7 +151,13 @@ void CSokobanView::OnDraw(CDC* pDC)
                 CDC memDC;
                 memDC.CreateCompatibleDC(&aDC);
                 memDC.SelectObject(&aBitmap);
-                aDC.StretchBlt(currentPos.x+pDoc->scale * j, currentPos.y + pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
+                if (pDoc->map[i][j].value == pDoc->WALL || pDoc->map[i][j].value == pDoc->BOX) {
+                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
+                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * (i + 1), pDoc->scale, pDoc->scale / 3.0, &memDC, 0, 0, 48, 48, SRCCOPY);
+                }
+                else
+                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale/3.0+ pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
+
             }
     pDoc->completedCount();
     CString s;
