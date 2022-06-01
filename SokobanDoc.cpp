@@ -163,13 +163,15 @@ void CSokobanDoc::newLineAdd()
 
 void CSokobanDoc::lineBlockAdd(int line, char block)
 {
-	bool isdest = (block == 'C' || block == 'D') ? true : false;
+	bool isdest = (block == 'C' || block == 'D' || block == 'w') ? true : false;
 	if (isdest)
 		destAmount++;
 	if (block == '0' || block == 'D')
 		block = EMPTY;
 	else if (block == 'C')
 		block = BOX;
+	else if (block == 'w')
+		block = PLAYER;
 	if (block == 'B')
 		boxAmount++;
 	if (block == '\t') {

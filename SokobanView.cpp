@@ -16,6 +16,11 @@
 
 #include "SokobanDoc.h"
 #include "SokobanView.h"
+#include "TcpIp.h"
+#include "rule.h"
+
+#include "protocols.h"
+#include "mysocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -38,6 +43,9 @@ BEGIN_MESSAGE_MAP(CSokobanView, CView)
     ON_WM_LBUTTONDOWN()
     ON_WM_LBUTTONUP()
     ON_WM_MOUSEMOVE()
+    ON_COMMAND(ID_local, &CSokobanView::Onlocal)
+    ON_COMMAND(ID_server, &CSokobanView::Onserver)
+    ON_COMMAND(ID_gamerule, &CSokobanView::Ongamerule)
 END_MESSAGE_MAP()
 
 // CSokobanView 建構/解構
@@ -54,6 +62,12 @@ CSokobanView::CSokobanView() noexcept
     currentPos.y = 0;
     dragging = false;
     follow = false;
+    mode = 0;
+    reqed = false;
+    mapInit = false;
+    loading = false;
+    connected = false;
+    seenRule = false;
 }
 
 CSokobanView::~CSokobanView()
@@ -80,8 +94,14 @@ void CSokobanView::OnDraw(CDC* pDC)
 	// TODO: 在此加入原生資料的描繪程式碼
     CWnd* pwndParent = this->GetParent();
     pwndParent->GetClientRect(&screen);
-
-    if (level != pDoc->level) {
+    if (mode == 0) reqed = true;
+    if (mode == 1 && !mapInit) {
+        mapInit = true;
+        request("R");
+        request("R");
+    }
+    if (level != pDoc->level && reqed) {
+        reqed = false;
         ReadMap(pDoc->level);
         if(follow)
             for (int i = 0; i < pDoc->map.size(); i++)
@@ -169,12 +189,16 @@ void CSokobanView::OnDraw(CDC* pDC)
     pDC->TextOut(screen.right - 200, screen.top + 100, s);
     s.Format(L"Steps: %d", pDoc->step);
     pDC->TextOut(screen.right - 200, screen.top + 120, s);
-
-    pDC->TextOut(screen.left + 5, screen.bottom - 115, L"Hint:");
-    pDC->TextOut(screen.left + 5, screen.bottom - 95, L"(1) Move the map by mouse dragging");
-    pDC->TextOut(screen.left + 5, screen.bottom - 75, L"(2) Ctrl + mouse wheel scroll to change map size");
-    pDC->TextOut(screen.left + 5, screen.bottom - 55, L"(3) Press F ON/OFF the `Map Center View`");
-    pDC->TextOut(screen.left + 5, screen.bottom - 35, L"(4) Press R to reset the map position");
+    if (!follow)
+        pDC->TextOut(screen.right - 200, screen.top + 140, L"Focus on: Map");
+    else
+        pDC->TextOut(screen.right - 200, screen.top + 140, L"Focus on: Player");
+    
+    if (!seenRule) {
+        pDC->TextOut(screen.left + 5, screen.top +5, L"▲ 請先看遊戲說明");
+        pDC->TextOut(screen.left + 5, screen.bottom - 55, L"Hint");
+        pDC->TextOut(screen.left + 5, screen.bottom - 35, L"Press X or Z can go to other room");
+    }
 }
 
 
@@ -232,41 +256,70 @@ int CSokobanView::ReadMap(int n)
 {
     CSokobanDoc* pDoc = GetDocument();
     level = pDoc->level;
-    if (n < 0 || n > 150)
-        return fileError("Only accept map000 to map150");
-    char filename[15];
-    sprintf_s(filename, "map/map%03d.txt", n);
-    FILE* fp;
-    errno_t err = fopen_s(&fp,filename, "r");
-    char word;
-    if (fp == NULL || err != 0)
-        return fileError("file not found. Press any key to quit.");
-    else
-    {
-        pDoc->newLineAdd();
-        for (int i = 0; (word = fgetc(fp)) != EOF;)
+    if (mode == 0) {
+        if (n < 0 || n > 150)
+            return fileError("Only accept map000 to map150");
+        char filename[15];
+        sprintf_s(filename, "map/map%03d.txt", n);
+        FILE* fp;
+        errno_t err = fopen_s(&fp, filename, "r");
+        char word;
+        if (fp == NULL || err != 0)
+            return fileError("file not found. Press any key to quit.");
+        else
         {
-            if (word == '\n')
+            pDoc->newLineAdd();
+            for (int i = 0; (word = fgetc(fp)) != EOF;)
             {
-                pDoc->newLineAdd();
-                i++;
+                if (word == '\n')
+                {
+                    pDoc->newLineAdd();
+                    i++;
+                }
+                else if (
+                    word == 'H' ||
+                    word == '0' ||
+                    word == ' ' ||
+                    word == '\t' ||
+                    word == 'B' ||
+                    word == 'C' ||
+                    word == 'D' ||
+                    word == 'W')
+                    pDoc->lineBlockAdd(i, word);
+                else if (word != '\r')
+                    return fileError("Invalid syntax in map.");
             }
-            else if (
-                word == 'H' ||
-                word == '0' ||
-                word == ' ' ||
-                word == '\t' ||
-                word == 'B' ||
-                word == 'C' ||
-                word == 'D' ||
-                word == 'W')
-                pDoc->lineBlockAdd(i, word);
-            else if (word != '\r')
-                return fileError("Invalid syntax in map.");
-        }
 
-        fclose(fp);
-        return 1;
+            fclose(fp);
+            return 1;
+        }
+    }
+    else if (mode == 1) {
+            pDoc->map.clear();
+            pDoc->newLineAdd();
+            for (int i = 0,j=0; j<resMap.length();j++)
+            {
+                char word = resMap[j];
+                if (word == 'N')
+                {
+                    pDoc->newLineAdd();
+                    i++;
+                }
+                else if (
+                    word == 'H' ||
+                    word == '0' ||
+                    word == ' ' ||
+                    word == '\t' ||
+                    word == 'B' ||
+                    word == 'C' ||
+                    word == 'D' ||
+                    word == 'W' ||
+                    word == 'w')
+                    pDoc->lineBlockAdd(i, word);
+                else
+                    return fileError("Invalid syntax in map.");
+            }
+            return 1;
     }
 }
 
@@ -284,18 +337,52 @@ bool CSokobanView::MapVarify()
 
 void CSokobanView::OnKeyDown(UINT key, UINT nRepCnt, UINT nFlags)
 {
+    if (!seenRule) return;
     keydown = key;
     CSokobanDoc* pDoc = GetDocument();
-    if (pDoc->isEnd())
-        return pDoc->nextLevel();
-    if (key == 'h' || key == 'H' || key == 37)
-        return pDoc->MoveWorker(pDoc->LEFT);
-    if (key == 'k' || key == 'K' || key == 38)
-        return pDoc->MoveWorker(pDoc->UP);
-    if (key == 'j' || key == 'J' || key == 40)
-        return pDoc->MoveWorker(pDoc->DOWN);
-    if (key == 'l' || key == 'L' || key == 39)
-        return pDoc->MoveWorker(pDoc->RIGHT);
+    if (mode == 0) {
+        if (pDoc->isEnd())
+            return pDoc->nextLevel();
+        if (key == 'h' || key == 'H' || key == 37)
+            return pDoc->MoveWorker(pDoc->LEFT);
+        if (key == 'k' || key == 'K' || key == 38)
+            return pDoc->MoveWorker(pDoc->UP);
+        if (key == 'j' || key == 'J' || key == 40)
+            return pDoc->MoveWorker(pDoc->DOWN);
+        if (key == 'l' || key == 'L' || key == 39)
+            return pDoc->MoveWorker(pDoc->RIGHT);
+        if (pDoc->level < 150 && (key == 'x' || key == 'X'))
+            return pDoc->nextLevel();
+        if ((key == 'z' || key == 'Z'))
+        {
+            if ((pDoc->level -= 2) <= 0)
+                pDoc->level = -1;
+            return pDoc->nextLevel();
+        }
+    }
+    else if (mode == 1) {
+        if (key == 'h' || key == 'H' || key == 37) {
+            pDoc->face = pDoc->LEFT;
+            request("0");
+        }
+        else if (key == 'k' || key == 'K' || key == 38) {
+            pDoc->face = pDoc->UP;
+            request("1");
+        }
+        else if (key == 'j' || key == 'J' || key == 40) {
+            pDoc->face = pDoc->DOWN;
+            request("2");
+        }
+        else if (key == 'l' || key == 'L' || key == 39) {
+            pDoc->face = pDoc->RIGHT;
+            request("3");
+        }
+        else if (key == 'x' || key == 'X')
+            request("x");
+        else if (key == 'z' || key == 'Z')
+            request("z");
+    }
+    
     if (key == 'r' || key == 'R') {
         currentPos.x = 0;
         currentPos.y = 0;
@@ -305,17 +392,14 @@ void CSokobanView::OnKeyDown(UINT key, UINT nRepCnt, UINT nFlags)
     }
     if (key == 'f' || key == 'F') {
         follow = follow ? false : true;
+        return Invalidate();
+    }
+    if (key == 'm' || key == 'M') {
+        mode = mode==0 ? 1 : 0;
         return;
     }
     /* x:goto last level, x:goto next level */
-    if (pDoc->level < 150 && (key == 'x' || key == 'X'))
-        return pDoc->nextLevel();
-    if ((key == 'z' || key == 'Z'))
-    {
-        if ((pDoc->level -= 2) <= 0)
-            pDoc->level = -1;
-        return pDoc->nextLevel();
-    }
+    
     CView::OnKeyDown(key, nRepCnt, nFlags);
 }
 
@@ -386,4 +470,93 @@ void CSokobanView::OnMouseMove(UINT nFlags, CPoint point)
     }
     
     CView::OnMouseMove(nFlags, point);
+}
+
+
+void CSokobanView::request(string req)
+{
+    if (loading) return;
+    loading = true;
+    CSokobanDoc* pDoc = GetDocument();
+    string res,strmap="";
+    (*connection).Write(req);
+    (*connection).Read(-1000, strmap);
+    if (strmap[0] == '!') {
+        fileError(strmap);
+        return;
+    }
+    (*connection).Read(-50, res);
+    int resn[4];
+    sscanf_s(res.c_str(), "%d %d %d %d", resn, resn + 1, resn + 2, resn + 3);
+    pDoc->level = resn[0];
+    pDoc->destAmount = resn[1];
+    pDoc->completed = resn[2];
+    pDoc->step = resn[3];
+    resMap = "";
+    resMap = strmap;
+    level = -1;
+    reqed = true;
+    connected = true;
+    Invalidate();
+    loading = false;
+}
+
+
+void CSokobanView::Onlocal()
+{
+    // TODO: 在此加入您的命令處理常式程式碼
+    
+    mode = 0;
+    reset();
+}
+
+
+void CSokobanView::Onserver()
+{
+    // TODO: 在此加入您的命令處理常式程式碼
+    TcpIp DialogWindow;
+    CPoint point;
+    vector<CString> data;
+    if (!connected && DialogWindow.DoModal() == IDOK && mode==0) {
+        if (DialogWindow.m_IP != L"") {
+            CT2CA preIP(DialogWindow.m_IP);
+            CT2CA prePORT(DialogWindow.m_PORT);
+            string ip(preIP);
+            string port(prePORT);
+            static Endpoint epc(TCP | CLIENT, ip, port);
+            connection = &epc;
+            mode = 1;
+            Invalidate();
+        }else AfxMessageBox(_T("IP 是必填的項目"));
+    }
+    else if(connected) {
+        mode = 1;
+        Invalidate();
+        request("R");
+    }
+}
+
+
+void CSokobanView::reset()
+{
+    // TODO: 請在此新增您的實作程式碼.
+    CSokobanDoc* pDoc = GetDocument();
+    level = -1;
+    pDoc->level = 0;
+    pDoc->map.clear();
+    pDoc->level = 0;
+    pDoc->destAmount = 0;
+    pDoc->completed = 0;
+    pDoc->step = 0;
+    Invalidate();
+}
+
+
+void CSokobanView::Ongamerule()
+{
+    // TODO: 在此加入您的命令處理常式程式碼
+    rule DialogWindow;
+    DialogWindow.DoModal();
+    seenRule = true;
+    Invalidate();
 }

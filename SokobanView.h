@@ -4,6 +4,10 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+
+#include "protocols.h"
+#include "mysocket.h"
+
 #pragma once
 using std::string;
 using std::vector;
@@ -64,6 +68,19 @@ public:
 	bool follow;
 	RECT screen;
 	CPoint player;
+	int mode;
+	Endpoint* connection;
+	void request(string req);
+	string resMap;
+	bool reqed;
+	bool mapInit;
+	bool loading;
+	afx_msg void Onlocal();
+	afx_msg void Onserver();
+	void reset();
+	bool connected;
+	afx_msg void Ongamerule();
+	bool seenRule;
 };
 
 #ifndef _DEBUG  // 對 SokobanView.cpp 中的版本進行偵錯

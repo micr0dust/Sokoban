@@ -158,7 +158,6 @@ protected:
 protected:
 	DECLARE_MESSAGE_MAP()
 public:
-//	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 };
 
 CAboutDlg::CAboutDlg() noexcept : CDialogEx(IDD_ABOUTBOX)
@@ -182,4 +181,5 @@ void CSokobanApp::OnAppAbout()
 }
 
 // CSokobanApp 訊息處理常式
+
 
