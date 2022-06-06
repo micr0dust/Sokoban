@@ -1,6 +1,6 @@
 # Sokoban
 
-[![下載](https://github.com/micr0dust/image_saves/raw/master/img/button/btn-dl-black-ch.png?raw=true "下載")](https://github.com/micr0dust/Sokoban/releases/download/v1.1.0.1/Sokoban.zip)
+[![下載](https://github.com/micr0dust/image_saves/raw/master/img/button/btn-dl-black-ch.png?raw=true "下載")](https://github.com/micr0dust/Sokoban/releases/download/v1.1.0.2/Sokoban.zip)
 
 ## 如何開啟
 
