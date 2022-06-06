@@ -194,11 +194,7 @@ void CSokobanView::OnDraw(CDC* pDC)
     else
         pDC->TextOut(screen.right - 200, screen.top + 140, L"Focus on: Player");
     
-    if (!seenRule) {
-        pDC->TextOut(screen.left + 5, screen.top +5, L"▲ 請先看遊戲說明");
-        pDC->TextOut(screen.left + 5, screen.bottom - 55, L"Hint");
-        pDC->TextOut(screen.left + 5, screen.bottom - 35, L"Press X or Z can go to other room");
-    }
+    if (!seenRule) Ongamerule();
 }
 
 
@@ -505,9 +501,10 @@ void CSokobanView::request(string req)
 void CSokobanView::Onlocal()
 {
     // TODO: 在此加入您的命令處理常式程式碼
-    
-    mode = 0;
-    reset();
+    if (mode == 1) {
+        mode = 0;
+        reset();
+    }
 }
 
 
@@ -517,6 +514,14 @@ void CSokobanView::Onserver()
     TcpIp DialogWindow;
     CPoint point;
     vector<CString> data;
+    CSokobanDoc* pDoc = GetDocument();
+    pDoc->local.map.clear();
+    pDoc->local.map.assign(pDoc->map.begin(), pDoc->map.end());
+    pDoc->local.level = pDoc->level;
+    pDoc->local.destAmount = pDoc->destAmount;
+    pDoc->local.completed = pDoc->completed;
+    pDoc->local.step = pDoc->step;
+    pDoc->local.face = pDoc->face;
     if (!connected && DialogWindow.DoModal() == IDOK && mode==0) {
         if (DialogWindow.m_IP != L"") {
             CT2CA preIP(DialogWindow.m_IP);
@@ -542,12 +547,14 @@ void CSokobanView::reset()
     // TODO: 請在此新增您的實作程式碼.
     CSokobanDoc* pDoc = GetDocument();
     level = -1;
-    pDoc->level = 0;
     pDoc->map.clear();
-    pDoc->level = 0;
-    pDoc->destAmount = 0;
-    pDoc->completed = 0;
-    pDoc->step = 0;
+    pDoc->map.assign(pDoc->local.map.begin(), pDoc->local.map.end());
+    pDoc->level = pDoc->local.level;
+    level = pDoc->level;
+    pDoc->destAmount = pDoc->local.destAmount;
+    pDoc->completed = pDoc->local.completed;
+    pDoc->step = pDoc->local.step;
+    pDoc->face = pDoc->local.face;
     Invalidate();
 }
 

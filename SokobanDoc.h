@@ -87,4 +87,16 @@ public:
 	void nextLevel();
 	bool isEnd();
 	Direction face;
+	struct Save
+	{
+		vector<
+			vector<CBlock>
+
+		>
+			map;
+		int level;
+		int destAmount, completed, boxAmount, step;
+		Direction face;
+	};
+	Save local;
 };
