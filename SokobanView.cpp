@@ -84,12 +84,26 @@ BOOL CSokobanView::PreCreateWindow(CREATESTRUCT& cs)
 
 // CSokobanView 繪圖
 
-void CSokobanView::OnDraw(CDC* pDC)
+void CSokobanView::OnDraw(CDC* /*pDC*/)
 {
 	CSokobanDoc* pDoc = GetDocument();
 	ASSERT_VALID(pDoc);
 	if (!pDoc)
 		return;
+
+    CRect rc;
+    GetClientRect(rc);
+    int nWidth = rc.Width();
+    int nHeight = rc.Height();
+
+    CDC* pDC = GetDC();
+    CDC MemDC;
+    CBitmap MemBitmap;
+
+    MemDC.CreateCompatibleDC(pDC);
+    MemBitmap.CreateCompatibleBitmap(pDC, nWidth, nHeight);
+    CBitmap* pOldbitmap = MemDC.SelectObject(&MemBitmap);
+    MemDC.FillSolidRect(0, 0, nWidth, nHeight, RGB(220, 220, 220));
 
 	// TODO: 在此加入原生資料的描繪程式碼
     CWnd* pwndParent = this->GetParent();
@@ -172,28 +186,32 @@ void CSokobanView::OnDraw(CDC* pDC)
                 memDC.CreateCompatibleDC(&aDC);
                 memDC.SelectObject(&aBitmap);
                 if (pDoc->map[i][j].value == pDoc->WALL || pDoc->map[i][j].value == pDoc->BOX) {
-                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
-                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * (i + 1), pDoc->scale, pDoc->scale / 3.0, &memDC, 0, 0, 48, 48, SRCCOPY);
+                    MemDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
+                    MemDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale * (i + 1), pDoc->scale, pDoc->scale / 3.0, &memDC, 0, 0, 48, 48, SRCCOPY);
                 }
                 else
-                    aDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale/3.0+ pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
+                    MemDC.StretchBlt(currentPos.x + pDoc->scale * j, currentPos.y + pDoc->scale/3.0+ pDoc->scale * i, pDoc->scale, pDoc->scale, &memDC, 0, 0, 48, 48, SRCCOPY);
 
             }
     pDoc->completedCount();
     CString s;
     s.Format(L"Level: %d", pDoc->level);
-    pDC->TextOut(screen.right-200, screen.top +60,s);
+    MemDC.TextOut(screen.right-200, screen.top +60,s);
     s.Format(L"Destination: %d", pDoc->destAmount);
-    pDC->TextOut(screen.right - 200, screen.top+80, s);
+    MemDC.TextOut(screen.right - 200, screen.top+80, s);
     s.Format(L"Arrival: %d", pDoc->completed);
-    pDC->TextOut(screen.right - 200, screen.top + 100, s);
+    MemDC.TextOut(screen.right - 200, screen.top + 100, s);
     s.Format(L"Steps: %d", pDoc->step);
-    pDC->TextOut(screen.right - 200, screen.top + 120, s);
+    MemDC.TextOut(screen.right - 200, screen.top + 120, s);
     if (!follow)
-        pDC->TextOut(screen.right - 200, screen.top + 140, L"Focus on: Map");
+        MemDC.TextOut(screen.right - 200, screen.top + 140, L"Focus on: Map");
     else
-        pDC->TextOut(screen.right - 200, screen.top + 140, L"Focus on: Player");
-    
+        MemDC.TextOut(screen.right - 200, screen.top + 140, L"Focus on: Player");
+
+    pDC->BitBlt(0, 0, nWidth, nHeight, &MemDC, 0, 0, SRCCOPY);
+    MemDC.SelectObject(pOldbitmap);
+    MemBitmap.DeleteObject();
+
     if (!seenRule) Ongamerule();
 }
 
@@ -242,7 +260,7 @@ bool CSokobanView::fileError(string err = "")
 {
     CSokobanDoc* pDoc = GetDocument();
     errorTxt = err;
-    //pDoc->UpdateAllViews(NULL);
+    //Invalidate();
     Invalidate();
     return false;
 }
@@ -413,13 +431,13 @@ BOOL CSokobanView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
     if (nFlags== MK_CONTROL && zDelta > 0)
     {
         pDoc->scaleModify(1);
-        //pDoc->UpdateAllViews(NULL);
+        //Invalidate()
         Invalidate();
     }
     if (nFlags == MK_CONTROL && zDelta < 0)
     {
         pDoc->scaleModify(-1);
-        //pDoc->UpdateAllViews(NULL);
+        //Invalidate()
         Invalidate();
     }
     return CView::OnMouseWheel(nFlags, zDelta, pt);
@@ -429,10 +447,10 @@ BOOL CSokobanView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 BOOL CSokobanView::OnEraseBkgnd(CDC* pDC)
 {
     // TODO: 在此加入您的訊息處理常式程式碼和 (或) 呼叫預設值
-    RECT rc;
-    GetClientRect(&rc);
-    pDC->SetBkColor(RGB(220, 220, 220));
-    pDC->ExtTextOut(0, 0, ETO_OPAQUE, &rc, NULL, 0, NULL);
+    //RECT rc;
+    //GetClientRect(&rc);
+    //pDC->SetBkColor(RGB(220, 220, 220));
+    //pDC->ExtTextOut(0, 0, ETO_OPAQUE, &rc, NULL, 0, NULL);
     return FALSE;
     //return CView::OnEraseBkgnd(pDC);
 }
